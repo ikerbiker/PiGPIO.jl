@@ -312,13 +312,13 @@ end
 
 """Initialises a wait_for_edge."""
 function WaitForEdge( notify, gpio::Int, edge, timeout)
-    callb = _callback_ADT(gpio, edge, self.func)
+    callb = Callback_ADT(gpio, edge, self.func)
     self = WaitForEdge(notify, callb, false, time())
     push!(self.notify, self.callb)
     while (self.trigger == false) && ((time()-self.start) < timeout)
       time.sleep(0.05)
     end
-    self._notify.remove(self.callb)
+    self.notify.remove(self.callb)
 end
 
 """Sets wait_for_edge triggered."""
@@ -1226,7 +1226,7 @@ cb1.cancel() # To cancel callback cb1.
 ...
 """
 function callback(self::Pi, user_gpio, edge=RISING_EDGE, func=nothing)
-    return _callback(self._notify, user_gpio, edge, func)
+    return Callback(self.notify, user_gpio, edge, func)
 end
 
 """
