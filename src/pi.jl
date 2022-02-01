@@ -40,7 +40,7 @@ function error_text(errnum)
            return e[1]
        end
     end
-    return "unknown error ($ernum)"
+    return "unknown error ($errnum)"
 end
 
 """
@@ -124,15 +124,15 @@ function _pigpio_command_ext(sl, cmd, p1, p2, p3, extents, rl=true)
     ext = IOBuffer()
     Base.write(ext, Array(reinterpret(UInt8, [cmd, p1, p2, p3])))
     for x in extents
-       write(ext, string(x))
+       Base.write(ext, string(x))
     end
     lock(sl.l)
-    write(sl.s, ext)
+    Base.write(sl.s, ext)
     msg = reinterpret(Cuint, sl.s)[4]
     if rl
          unlock(sl.l)
     end
-    return res
+    return msg
 end
 
 """An ADT class to hold callback information
@@ -218,7 +218,7 @@ function run(self::CallbackThread)
     lastLevel = _pigpio_command(self.control,  _PI_CMD_BR1, 0, 0)
     MSG_SIZ = 12
     while self.go
-        buf = readbytes(self.sl.s, MSG_SIZ, all=true)
+        buf = readbytes!(self.sl.s, MSG_SIZ, all=true)
         if self.go
             msg = reinterpret(CallbMsg, buf)
             seq = msg.seq
@@ -261,7 +261,7 @@ end
 
 function Callback(notify, user_gpio::Int, edge::Int=RISING_EDGE, func=nothing)
     self = Callback(notify, 0, false, nothing)
-    if func == nothing
+    if func === nothing
         func = _tally
     end
     self.callb = Callback_ADT(user_gpio, edge, func)
@@ -298,7 +298,7 @@ end
 Resets the tally count to zero.
 """
 function reset_tally(self::Callback)
-    self._reset = true
+    self.reset = true
     self.count = 0
 end
 
@@ -312,7 +312,7 @@ end
 
 """Initialises a wait_for_edge."""
 function WaitForEdge( notify, gpio::Int, edge, timeout)
-    callb = Callback_ADT(gpio, edge, self.func)
+    callb = Callback_ADT(gpio, edge, func)
     self = WaitForEdge(notify, callb, false, time())
     push!(self.notify, self.callb)
     while (self.trigger == false) && ((time()-self.start) < timeout)
@@ -336,7 +336,7 @@ end
 
 """Returns count bytes from the command socket."""
 function rxbuf(self::Pi, count)
-    ext = readbytes(self.sl.s, count, all)
+    ext = readbytes!(self.sl.s, count, all)
     return ext
 end
 
@@ -672,7 +672,7 @@ set_servo_pulsewidth(pi, 17, 2000) # safe clockwise
 """
 function set_servo_pulsewidth(self::Pi, user_gpio, pulsewidth)
     return _u2i(_pigpio_command(
-        self.sl, _PI_CMD_SERVO, user_gpio, int(pulsewidth)))
+        self.sl, _PI_CMD_SERVO, user_gpio, Int(pulsewidth)))
 end
 
 """
@@ -1045,7 +1045,7 @@ function hardware_PWM(self::Pi, gpio, PWMfreq, PWMduty)
 ## extension ##
 # I PWMdutycycle
     extents = IOBuffer()
-    extents =write(extents, 10)
+    extents = Base.write(extents, 10)
     return _u2i(_pigpio_command_ext(
         self.sl, _PI_CMD_HP, gpio, PWMfreq, 4, extents))
 end
@@ -1138,7 +1138,7 @@ function custom_1(self, arg1=0, arg2=0, argx=[])
     ## extension ##
     # s len argx bytes
 
-    return u2i(_pigpio_command_ext(
+    return _u2i(_pigpio_command_ext(
         self.sl, _PI_CMD_CF1, arg1, arg2, length(argx), [argx]))
 end
 
@@ -1174,10 +1174,10 @@ function custom_2(self, arg1=0, argx=[], retMax=8192)
     # s len argx bytes
 
     # Don't raise exception.  Must release lock.
-    bytes = u2i(_pigpio_command_ext(
+    bytes = _u2i(_pigpio_command_ext(
     self.sl, _PI_CMD_CF2, arg1, retMax, length(argx), [argx], false))
     if bytes > 0
-        data = rxbuf(bytes)
+        data = rxbuf(self, bytes)
     else
         data = ""
     end
@@ -1261,7 +1261,7 @@ print("wait for falling edge timed out")
 ...
 """
 function wait_for_edge(self::Pi, user_gpio, edge=RISING_EDGE, wait_timeout=60.0)
-    a = _wait_for_edge(self.notify, user_gpio, edge, wait_timeout)
+    a = WaitForEdge(self.notify, user_gpio, edge, wait_timeout)
     return a.trigger
 end
 
@@ -1296,7 +1296,7 @@ exit()
 """
 function Pi(; host = get(ENV, "PIGPIO_ADDR", ""), port = get(ENV, "PIGPIO_PORT", 8888))
     port = Int(port)
-    if host == "" || host == nothing
+    if host == "" || host === nothing
         host = "localhost"
     end
 
