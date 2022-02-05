@@ -259,13 +259,16 @@ mutable struct Callback
     callb::Callback_ADT
 end
 
-function Callback(notify, user_gpio::Int, edge::Int=RISING_EDGE, func=nothing)
-    self = Callback(notify, 0, false, nothing)
+function Callback(notify::CallbackThread, user_gpio::Int, edge::Int=RISING_EDGE, func=nothing)
+    # Pi.notify is passed here which is a CallbackThread, and so the array CallbackThread.callbacks must be passed to the Callback constructor since it is type Array{Callback_ADT, 1}
+    #  self = Callback(notify.callbacks, 0, false, nothing)
     if func === nothing
         func = _tally
     end
-    self.callb = Callback_ADT(user_gpio, edge, func)
+    self = Callback(notify.callbacks, 0, false, Callback_ADT(user_gpio, edge, func))
+    #  self.callb = Callback_ADT(user_gpio, edge, func)
     push!(self.notify, self.callb)
+    return self
 end
 
 """Cancels a callback by removing it from the notification thread."""
