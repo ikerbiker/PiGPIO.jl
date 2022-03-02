@@ -146,7 +146,7 @@ function i2c_write_byte_data(self::Pi, handle, reg, byte_val)
     ## extension ##
     # I byte_val
     extents = IOBuffer
-    write(extents, byte_val)
+    Base.write(extents, byte_val)
     return _u2i(_pigpio_command_ext(
         self.sl, _PI_CMD_I2CWB, handle, reg, 4, extents))
 end
